@@ -9,13 +9,13 @@ from pybrain.datasets import ClassificationDataSet
 from pybrain.tools.shortcuts import buildNetwork
 from pybrain.supervised.trainers import BackpropTrainer
 
-def readFile(filename):
+def readFile(filename, startCol):
     f = csv.reader(open(filename, 'rb'))
     header = f.next()
 
     data = []
     for row in f:
-        data.append(row[1:])
+        data.append(row[startCol:])
     
     return np.array(data)
 
@@ -69,11 +69,13 @@ def constructDataset(data):
     return dataset
     
 def main():
-    training_data = readFile('data/train.csv')
+    training_data = readFile('data/train.csv', 1)
+    test_data = readFile('data/test.csv', 0)
+
     dataset = constructDataset(training_data)
     network = buildNetwork(7, 10, 1)
     trainer = BackpropTrainer(network, dataset)
-    trainer_error = trainer.train() #trainUntilConvergence()
+    trainer_error = trainer.trainUntilConvergence() #trainUntilConvergence()
 
     print 'Trainer Error:', trainer_error
 
@@ -88,15 +90,17 @@ def main():
     false_negatives = 0
     
     num_cases = len(training_data)
+    survival_threshold = 0.5
 
     for i in range(num_cases):
         predicted = network.activate(parseRow(training_data[i][1:]))[0]
         actual = int(training_data[i][0])
-    
-        if predicted > 0.5:
+
+        if predicted > survival_threshold:
             predicted = 1
         else:
             predicted = 0
+
 
         if predicted == 1 and actual == 0:
             false_positives += 1
@@ -115,6 +119,19 @@ def main():
         if actual == 1:
             actual_survival += 1
 
+    for i in range(len(test_data)):
+        passenger_id = test_data[i][0]
+        predicted = network.activate(parseRow(test_data[i][1:]))
+
+        if predicted > survival_threshold:
+            predicted = 1
+        else:
+            predicted = 0
+
+        print str(passenger_id) + ',' + str(predicted)
+
+    print ''
+    print '========== NEURAL NET TRAINING STATS =========='
     print 'Predicted Survival:', predicted_survival, '/', num_cases
     print 'Actual Survival:', actual_survival, '/', num_cases
     print ''
